@@ -1,11 +1,7 @@
-"""
-Flask web service for HTML scraping - Ready for Render.com deployment
-Accepts a URL and returns the HTML content
-"""
 from flask import Flask, request, Response
 from scrape_petfinder import scrape_html
-import os
 from urllib.parse import unquote
+import os
 
 app = Flask(__name__)
 
@@ -28,14 +24,7 @@ def health():
 
 @app.route('/scrape', methods=['GET', 'POST'])
 def scrape():
-    """
-    Scrape HTML from a URL.
-    
-    GET: /scrape?url=https://example.com
-    POST: {"url": "https://example.com"}
-    """
     try:
-        # Get URL from query parameter (GET) or JSON body (POST)
         if request.method == 'GET':
             url = request.args.get('url')
         else:
@@ -45,14 +34,10 @@ def scrape():
         if not url:
             return {"error": "Missing 'url' parameter. Use ?url=... for GET or {\"url\": \"...\"} for POST"}, 400
         
-        # Decode URL if encoded
         url = unquote(url)
-        
-        # Scrape the HTML
         html_content = scrape_html(url)
         
         if html_content:
-            # Return HTML directly with proper content type
             return Response(
                 html_content,
                 mimetype='text/html',
@@ -68,4 +53,3 @@ def scrape():
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
-
