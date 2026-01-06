@@ -36,12 +36,15 @@ def scrape_html_js(url, wait_timeout=20, additional_wait=5):
         # For Render/Linux servers, auto-detect Chrome binary
         chrome_binary = os.environ.get('CHROME_BINARY')
         if not chrome_binary:
-            # Common Chrome binary locations on Linux
+            # Common Chrome binary locations on Linux (including user home directory for Render)
+            home_dir = os.path.expanduser('~')
             possible_paths = [
                 '/usr/bin/google-chrome-stable',
                 '/usr/bin/google-chrome',
                 '/usr/bin/chromium-browser',
-                '/usr/bin/chromium'
+                '/usr/bin/chromium',
+                f'{home_dir}/bin/google-chrome-stable',
+                f'{home_dir}/chrome/opt/google/chrome/chrome'
             ]
             for path in possible_paths:
                 if os.path.exists(path):
