@@ -2,11 +2,15 @@ services:
   - type: web
     name: petfinder-scraper
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: chmod +x build.sh && ./build.sh
     startCommand: python app.py
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: PORT
         value: 5000
+      - key: CHROME_BINARY
+        value: /usr/bin/google-chrome-stable
+      # Note: Set ENDPOINT_KEY as a secret environment variable in Render dashboard
+      # This is required for API authentication
 
