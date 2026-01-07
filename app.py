@@ -61,7 +61,11 @@ def scrape_js():
             return {"error": "Missing 'url' parameter. Use ?url=...&key=... for GET or {\"url\": \"...\", \"key\": \"...\"} for POST"}, 400
         
         url = unquote(url)
-        html_content = scrape_html_js(url, wait_timeout=wait_timeout, additional_wait=additional_wait)
+        
+        try:
+            html_content = scrape_html_js(url, wait_timeout=wait_timeout, additional_wait=additional_wait)
+        except Exception as e:
+            return {"error": f"Scraping failed: {str(e)}. Chrome/ChromeDriver may not be installed on the server."}, 500
         
         if html_content:
             return Response(
@@ -70,7 +74,7 @@ def scrape_js():
                 headers={'Content-Type': 'text/html; charset=utf-8'}
             ), 200
         else:
-            return {"error": "Failed to scrape the page. JavaScript execution may have failed or ChromeDriver may not be available."}, 500
+            return {"error": "Failed to scrape the page. JavaScript execution may have failed or ChromeDriver may not be available. Check server logs for details."}, 500
             
     except Exception as e:
         return {"error": str(e)}, 500

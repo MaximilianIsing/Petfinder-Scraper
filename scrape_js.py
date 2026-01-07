@@ -69,14 +69,18 @@ def scrape_html_js(url, wait_timeout=20, additional_wait=5):
         
         try:
             driver = webdriver.Chrome(options=chrome_options)
-        except WebDriverException:
+        except (WebDriverException, Exception) as e:
             # Fallback: try with webdriver-manager if available
             try:
                 from webdriver_manager.chrome import ChromeDriverManager
                 service = ChromeService(ChromeDriverManager().install())
                 driver = webdriver.Chrome(service=service, options=chrome_options)
-            except ImportError:
-                raise Exception("ChromeDriver not found. Install Chrome/Chromium or webdriver-manager.")
+            except (ImportError, Exception) as fallback_error:
+                # Provide detailed error message
+                chrome_status = f"Chrome binary: {chrome_binary or 'not found'}"
+                error_msg = f"ChromeDriver initialization failed. {chrome_status}. Primary error: {str(e)}. Fallback error: {str(fallback_error)}"
+                print(error_msg)  # Log for debugging
+                raise Exception(error_msg)
         
         driver.get(url)
         
@@ -166,6 +170,10 @@ def scrape_html_js(url, wait_timeout=20, additional_wait=5):
         return result
         
     except Exception as e:
+        # Log error for debugging (can be removed in production)
+        import traceback
+        error_msg = f"Scraping error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
         return None
     finally:
         # Aggressive cleanup of driver
@@ -185,7 +193,16 @@ def scrape_html_js(url, wait_timeout=20, additional_wait=5):
         gc.collect()  # Call twice to ensure cleanup
 
 if __name__ == "__main__":
-    url = "https://example.com"
+    import sys
+    
+    if len(sys.argv) > 1:
+        url = sys.argv[1]
+    else:
+        url = "https://example.com"
+        print("Usage: python scrape_js.py <url>")
+        print(f"Using default URL: {url}")
+    
+    print(f"Scraping: {url}")
     html_content = scrape_html_js(url)
     
     if html_content:
