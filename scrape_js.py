@@ -8,7 +8,7 @@ from selenium.common.exceptions import TimeoutException, WebDriverException
 import time
 import os
 
-def scrape_html_js(url, wait_timeout=15, additional_wait=3):
+def scrape_html_js(url, wait_timeout=20, additional_wait=5):
     """
     Scrapes HTML content from a URL that requires JavaScript execution.
     Waits for dynamic content to load before returning HTML.
@@ -33,30 +33,18 @@ def scrape_html_js(url, wait_timeout=15, additional_wait=3):
         chrome_options.add_experimental_option('useAutomationExtension', False)
         chrome_options.add_argument('user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
         
-        # Memory optimization options for Render's limited resources
+        # Memory optimization flags (reduce memory without affecting scraping functionality)
         chrome_options.add_argument('--disable-extensions')
         chrome_options.add_argument('--disable-plugins')
         chrome_options.add_argument('--disable-background-networking')
         chrome_options.add_argument('--disable-background-timer-throttling')
         chrome_options.add_argument('--disable-renderer-backgrounding')
         chrome_options.add_argument('--disable-backgrounding-occluded-windows')
+        chrome_options.add_argument('--disable-features=TranslateUI')
         chrome_options.add_argument('--disable-ipc-flooding-protection')
         chrome_options.add_argument('--disable-sync')
-        chrome_options.add_argument('--disable-translate')
         chrome_options.add_argument('--disable-default-apps')
-        chrome_options.add_argument('--disable-features=TranslateUI')
         chrome_options.add_argument('--disable-component-extensions-with-background-pages')
-        chrome_options.add_argument('--disable-breakpad')
-        chrome_options.add_argument('--disable-component-update')
-        chrome_options.add_argument('--no-first-run')
-        chrome_options.add_argument('--no-default-browser-check')
-        chrome_options.add_argument('--disable-infobars')
-        chrome_options.add_argument('--disable-notifications')
-        chrome_options.add_argument('--disable-logging')
-        chrome_options.add_argument('--log-level=3')  # Only fatal errors
-        chrome_options.add_argument('--silent')
-        chrome_options.add_argument('--disable-web-security')  # May help with some sites
-        chrome_options.add_argument('--disable-features=VizDisplayCompositor')
         
         # For Render/Linux servers, auto-detect Chrome binary
         chrome_binary = os.environ.get('CHROME_BINARY')
@@ -89,10 +77,6 @@ def scrape_html_js(url, wait_timeout=15, additional_wait=3):
                 driver = webdriver.Chrome(service=service, options=chrome_options)
             except ImportError:
                 raise Exception("ChromeDriver not found. Install Chrome/Chromium or webdriver-manager.")
-        
-        # Set timeouts to prevent hanging
-        driver.set_page_load_timeout(wait_timeout + additional_wait + 5)
-        driver.implicitly_wait(5)
         
         driver.get(url)
         
@@ -131,37 +115,74 @@ def scrape_html_js(url, wait_timeout=15, additional_wait=3):
         # Additional wait for JavaScript to execute and content to load
         time.sleep(additional_wait)
         
-        # Scroll to bottom to trigger lazy loading if any (but limit scrolling to save memory)
+        # Scroll to bottom to trigger lazy loading if any
         try:
-            # Only scroll if page is not too large
-            page_height = driver.execute_script("return document.body.scrollHeight")
-            if page_height < 50000:  # Only scroll if page is reasonable size
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(1)  # Reduced wait time
-                driver.execute_script("window.scrollTo(0, 0);")
-                time.sleep(0.5)  # Reduced wait time
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(2)
+            driver.execute_script("window.scrollTo(0, 0);")
+            time.sleep(1)
         except:
             pass
         
-        # Get HTML content
         html_content = driver.page_source
         
-        # Clean up driver immediately to free memory
-        driver.quit()
-        driver = None
+        # Store content before cleanup
+        result = html_content
+        html_content = None  # Clear reference immediately
         
-        return html_content
+        # Aggressive memory cleanup - clear all browser state before quitting
+        try:
+            # Clear all browser storage and cache
+            driver.delete_all_cookies()
+            driver.execute_script("""
+                try {
+                    window.localStorage.clear();
+                    window.sessionStorage.clear();
+                    if (window.caches) {
+                        caches.keys().then(names => names.forEach(name => caches.delete(name)));
+                    }
+                    if ('serviceWorker' in navigator) {
+                        navigator.serviceWorker.getRegistrations().then(registrations => 
+                            registrations.forEach(reg => reg.unregister())
+                        );
+                    }
+                } catch(e) {}
+            """)
+            
+            # Clear DOM to free memory (after we've extracted the HTML)
+            driver.execute_script("document.body.innerHTML = ''; document.head.innerHTML = '';")
+            
+            # Close any extra windows/tabs
+            if len(driver.window_handles) > 1:
+                main_window = driver.current_window_handle
+                for handle in driver.window_handles:
+                    if handle != main_window:
+                        driver.switch_to.window(handle)
+                        driver.close()
+                driver.switch_to.window(main_window)
+        except:
+            pass
         
-    except MemoryError:
-        return None
+        return result
+        
     except Exception as e:
         return None
     finally:
+        # Aggressive cleanup of driver
         if driver:
+            try:
+                driver.close()
+            except:
+                pass
             try:
                 driver.quit()
             except:
                 pass
+        
+        # Aggressive garbage collection after driver cleanup
+        import gc
+        gc.collect()
+        gc.collect()  # Call twice to ensure cleanup
 
 if __name__ == "__main__":
     url = "https://example.com"

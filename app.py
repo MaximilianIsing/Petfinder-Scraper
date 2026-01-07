@@ -45,14 +45,14 @@ def scrape_js():
         if request.method == 'GET':
             key = request.args.get('key')
             url = request.args.get('url')
-            wait_timeout = min(int(request.args.get('wait_timeout', 15)), 30)  # Max 30 seconds
-            additional_wait = min(int(request.args.get('additional_wait', 3)), 10)  # Max 10 seconds
+            wait_timeout = int(request.args.get('wait_timeout', 20))
+            additional_wait = int(request.args.get('additional_wait', 5))
         else:
             data = request.get_json() or {}
             key = data.get('key')
             url = data.get('url')
-            wait_timeout = min(int(data.get('wait_timeout', 15)), 30)  # Max 30 seconds
-            additional_wait = min(int(data.get('additional_wait', 3)), 10)  # Max 10 seconds
+            wait_timeout = int(data.get('wait_timeout', 20))
+            additional_wait = int(data.get('additional_wait', 5))
         
         if not key or key != ENDPOINT_KEY:
             return {"error": "Invalid or missing endpoint key"}, 401
